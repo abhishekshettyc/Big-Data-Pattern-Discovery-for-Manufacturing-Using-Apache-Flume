@@ -1,0 +1,7 @@
+load_regime,operating_status,records,avg_output,avg_energy,avg_efficiency,downtime_events
+High,OVERLOAD,40,42.18,34.53,1.265,0
+High,RUNNING,40,41.95,34.51,1.278,0
+Low,RUNNING,78,23.56,25.48,0.965,0
+Medium,MAINTENANCE,2,0.0,23.49,0.0,2
+Medium,OVERLOAD,3,35.67,30.44,1.173,0
+Medium,RUNNING,347,35.91,28.56,1.322,0

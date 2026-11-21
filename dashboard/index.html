@@ -1,0 +1,16 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Smart Manufacturing Pattern Discovery</title><style>
+body{font-family:Arial;background:#0f172a;color:#e2e8f0;padding:20px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:#1e293b;padding:14px;border-radius:8px}.kpi{font-size:26px;color:#38bdf8;font-weight:bold}td,th{padding:6px;border-bottom:1px solid #334155}</style></head>
+<body><h1 style="color:#38bdf8">Smart Manufacturing Pattern Discovery</h1><div id="kpis" class="grid"></div><div id="panels" class="grid"></div>
+<script>var x=new XMLHttpRequest();x.open("GET","/api/patterns",false);x.send();var d=JSON.parse(x.responseText);
+function k(t,v){return"<div class=card><div>"+t+"</div><div class=kpi>"+v+"</div></div>";}
+var sc=d.sensor_relationships.filter(function(r){return r.strength=="Strong"&&r.sensor_x!=r.sensor_y;});
+document.getElementById("kpis").innerHTML=k("Machines",d.machine_behaviour.length)+k("Strong Links",sc.length);
+document.getElementById("kpis").innerHTML+=k("Assoc Rules",d.association_rules.length)+k("Anomalies",d.anomalies_detected.length);
+function tbl(t,r){if(!r.length)return"";var ks=Object.keys(r.find(Boolean)),h="<tr>";ks.forEach(function(c){h+="<th>"+c+"</th>";});
+h+="</tr>";r.slice(0,8).forEach(function(row){h+="<tr>";ks.forEach(function(c){h+="<td>"+row[c]+"</td>";});h+="</tr>";});
+return"<div class=card><h3>"+t+"</h3><table>"+h+"</table></div>";}var p=document.getElementById("panels");
+p.innerHTML=tbl("Machine Behaviour",d.machine_behaviour)+tbl("Sensor Links",sc)+tbl("Association Rules",d.association_rules);
+p.innerHTML+=tbl("Production Efficiency",d.production_patterns)+tbl("Temporal Shifts",d.temporal_patterns)+tbl("Anomalies",d.anomalies_detected);</script></body></html>
+p.innerHTML+=tbl("Production Efficiency",d.production_patterns)+tbl("Temporal Shifts",d.temporal_patterns);
+p.innerHTML+=tbl("Anomalies",d.anomalies_detected);</script></body></html>

@@ -1,0 +1,6 @@
+NUMBER_OF_MACHINES = 12
+NUMBER_OF_PRODUCTION_LINES = 3
+NUMBER_OF_RECORDS = 5000
+BATCH_SIZE = 500
+DATA_GENERATION_INTERVAL = 0.5
+SPOOL_DIR = '/home/cloudera/manufacturing-project/stream_buffer/spool'

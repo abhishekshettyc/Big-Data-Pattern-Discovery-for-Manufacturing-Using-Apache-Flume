@@ -1,0 +1,3 @@
+shift,hour,records,avg_load,avg_energy,total_output,avg_temp
+Night,0,470,72.19,29.04,16388,71.87
+Night,1,40,70.76,28.74,1383,72.33
