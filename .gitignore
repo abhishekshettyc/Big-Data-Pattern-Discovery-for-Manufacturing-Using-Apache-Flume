@@ -1,0 +1,4 @@
+logs/
+flume/checkpoint/
+flume/data/
+*.pyc
