@@ -8,7 +8,7 @@
 body{font-family:Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:24px}
 .topbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
 h1{color:#38bdf8;margin:0;font-size:24px}
-h2{color:#7dd3fc;margin:0 0 12px;font-size:18px}
+h2{color:#7dd3fc;margin:0;font-size:18px}
 h3{color:#7dd3fc;margin:0 0 12px;font-size:16px}
 .controls,.twin-section{background:#1e293b;padding:16px;border-radius:10px;border:1px solid #334155;margin-bottom:20px}
 .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
@@ -21,6 +21,9 @@ button:hover,.upload-btn:hover{background:#0369a1}
 .btn-grn{background:#059669}.btn-grn:hover{background:#047857}
 .btn-pur{background:#7c3aed}.btn-pur:hover{background:#6d28d9}
 .sim-out{width:100%;padding:10px 14px;border-radius:6px;background:#0f172a;border-left:4px solid #38bdf8;font-size:13px;display:none}
+.twin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:18px}
+.canvas-wrap{background:#0b1220;border:1px solid #334155;border-radius:10px;position:relative;height:370px;overflow:hidden}
+.diag-wrap{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:16px;display:flex;flex-direction:column;justify-content:space-between}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
 .panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px}
 .card{background:#1e293b;padding:18px;border-radius:10px;border:1px solid #334155;overflow-x:auto}
@@ -68,22 +71,41 @@ tr:hover td{background:#263348}
 <div class="twin-section">
   <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px">
     <div>
-      <h2 style="margin:0">3D Object & Full Interior Digital Twin (Auto-Detected from Dataset)</h2>
-      <div id="detectedDomainBadge" style="font-size:12px;color:#4ade80;margin-top:3px">Detected Object Architecture: Industrial CNC Machine & Product Assembly</div>
+      <h2>3D Object & Full Interior Digital Twin (Auto-Detected from Dataset)</h2>
+      <div id="detectedDomainBadge" style="font-size:12px;color:#4ade80;margin-top:3px">Detected Object Architecture: Industrial CNC Machine & Product Interior</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn-sec" onclick="window.setShellMode('xray')">X-Ray Interior View</button>
-      <button class="btn-sec" onclick="window.setShellMode('hidden')">Interior Only</button>
-      <button class="btn-sec" onclick="window.setShellMode('solid')">Solid Exterior</button>
-      <button class="btn-grn" onclick="window.repairAll3D()">Simulate Repair</button>
+      <button class="btn-sec" onclick="setShellMode('xray')">X-Ray Interior View</button>
+      <button class="btn-sec" onclick="setShellMode('hidden')">Interior Only</button>
+      <button class="btn-sec" onclick="setShellMode('solid')">Solid Exterior</button>
+      <button class="btn-grn" onclick="repairAll3D()">Simulate Repair</button>
     </div>
   </div>
-  <div id="twinHost"></div>
+  <div class="twin-grid">
+    <div class="canvas-wrap">
+      <canvas id="c3d" style="width:100%;height:100%;display:block;cursor:grab"></canvas>
+      <div style="position:absolute;top:10px;left:12px;font-size:11px;color:#94a3b8;background:rgba(15,23,42,.88);padding:5px 9px;border-radius:6px">3D Cutaway Interior • Drag 360° • Scroll Zoom • Click Internal Part</div>
+      <div id="partBadge" style="position:absolute;bottom:10px;left:12px;right:12px;font-size:12px;color:#38bdf8;background:rgba(15,23,42,.92);padding:7px 10px;border-radius:6px;border:1px solid #334155">Click any 3D internal component to inspect live diagnostics</div>
+    </div>
+    <div class="diag-wrap">
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px">
+          <b style="color:#7dd3fc;font-size:15px">Internal Fault & Error Localization</b>
+          <select id="twinMachineSel" onchange="updateTwinState()" style="width:165px;padding:5px 8px;font-size:12px"></select>
+        </div>
+        <div id="twinDiagList" style="font-size:13px;line-height:1.5;color:#cbd5e1;max-height:270px;overflow-y:auto"></div>
+      </div>
+      <div style="margin-top:10px;padding-top:8px;border-top:1px solid #1e293b;display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:#94a3b8">
+        <span><b style="color:#22c55e">●</b> Healthy Interior Part</span>
+        <span><b style="color:#f59e0b">●</b> Stress / Warning</span>
+        <span><b style="color:#ef4444">●</b> Faulty Component</span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="kpis" class="kpis"></div>
 <div id="panels" class="panels"></div>
-
 <script>
 var origData=null,d=null,lastAnomalies=[],detectedDomain="cnc";
 function loadHDFS(){
@@ -98,7 +120,6 @@ function detectDomain(text){
   if(s.indexOf("turbine")!==-1||s.indexOf("blade")!==-1||s.indexOf("exhaust")!==-1||s.indexOf("jet")!==-1)return"turbine";
   return"cnc";
 }
-
 function resetHDFS(){
   detectedDomain="cnc";
   d=JSON.parse(JSON.stringify(origData));
@@ -109,7 +130,7 @@ function k(t,v){return"<div class=card><div class=kpi-title>"+t+"</div><div clas
 function matchSearch(row,q){if(!q)return true;return Object.values(row).join(" ").toLowerCase().indexOf(q)!==-1;}
 function tbl(t,r){
   if(!r.length)return"<div class=card><h3>"+t+"</h3><p style='color:#94a3b8'>No matching records</p></div>";
-  var ks=Object.keys(r[0]),h="<tr>";ks.forEach(function(c){h+="<th>"+c+"</th>";});h+="</tr>";
+  var ks=Object.keys(r.at(0)),h="<tr>";ks.forEach(function(c){h+="<th>"+c+"</th>";});h+="</tr>";
   r.slice(0,8).forEach(function(row){h+="<tr>";ks.forEach(function(c){h+="<td>"+row[c]+"</td>";});h+="</tr>";});
   return"<div class=card><h3>"+t+"</h3><table>"+h+"</table></div>";
 }
@@ -117,7 +138,7 @@ function tempChart(mb){
   if(!mb.length)return"";
   var html="<div class=card><h3>Thermal Health Overview (Avg Temp °C)</h3>";
   mb.slice(0,8).forEach(function(m){
-    var t=parseFloat(m.avg_temp)||0,pct=Math.min(100,Math.round((t/120)*100));
+    var t=parseFloat(m.avg_temp)||0,pct=Math.min(100,Math.round((t/125)*100));
     var col=t>85?"#ef4444":(t>72?"#f59e0b":"#22c55e");
     html+="<div class=bar-row><div class=bar-lbl>"+(m.machine_id||m.behaviour_group)+"</div><div class=bar-track><div class=bar-fill style='width:"+pct+"%;background:"+col+"'></div></div><div class=bar-val>"+t+" °C</div></div>";
   });
@@ -125,7 +146,7 @@ function tempChart(mb){
 }
 function render(){
   var lfSel=document.getElementById("lineFilter");
-  var lines=[...new Set((d.machine_behaviour||[]).map(function(m){return m.production_line;}).filter(Boolean))];
+  var lines=Array.from(new Set((d.machine_behaviour||[]).map(function(m){return m.production_line;}).filter(Boolean)));
   var curLf=lfSel.value;
   lfSel.innerHTML="<option value='ALL'>All Units</option>"+lines.map(function(l){return"<option value='"+l+"'>"+l+"</option>";}).join("");
   if(lines.indexOf(curLf)!==-1)lfSel.value=curLf;
@@ -141,7 +162,7 @@ function render(){
   var ar=d.association_rules.filter(function(r){return matchSearch(r,q);});
   document.getElementById("kpis").innerHTML=k("Units Profiled",mb.length)+k("Strong Links",sc.length)+k("Assoc Rules",ar.length)+k("Anomalies (|Z|≥"+zt+")",an.length);
   document.getElementById("panels").innerHTML=tempChart(mb)+tbl("Anomalies Detected",an)+tbl("Unit Behaviour",mb)+tbl("Sensor Links",sc)+tbl("Association Rules",ar)+tbl("Efficiency Regimes",d.production_patterns)+tbl("Temporal Shifts",d.temporal_patterns);
-  if(window.updateTwin3D)window.updateTwin3D();
+  updateTwinState();
 }
 function runCheck(){
   var m=document.getElementById("inMac").value,t=parseFloat(document.getElementById("inTemp").value),v=parseFloat(document.getElementById("inVib").value),l=parseFloat(document.getElementById("inLoad").value);
@@ -150,20 +171,20 @@ function runCheck(){
   var out=document.getElementById("simOut");out.style.display="block";
   out.style.borderLeftColor=alert?"#ef4444":"#22c55e";
   out.innerHTML=(alert?"<b style='color:#f87171'>WARNING — Fault Surge Detected!</b> Inspect <b>"+m+"</b> in the 3D Interior Model above! ":"<b style='color:#4ade80'>NORMAL — Healthy Operating State:</b> ")+"Temp Z-Score = <b>"+tz+"</b>, Vibration Z-Score = <b>"+vz+"</b>, Load = <b>"+l+"%</b>";
-    if(alert){
-    var ln=(d.machine_behaviour&&d.machine_behaviour[0]&&d.machine_behaviour[0].production_line)||"LINE-A";
+  if(alert){
+    var ln=(d.machine_behaviour&&d.machine_behaviour.length&&d.machine_behaviour.at(0).production_line)||"LINE-A";
     d.anomalies_detected.unshift({anomaly_type:"Sensor_Surge (Live)",production_line:ln,vibration:v,timestamp:"LIVE-TEST",temp_z:tz,machine_id:m,vib_z:vz,temperature:t});
     render();
   }
 }
 function exportCSV(){
   if(!lastAnomalies.length)return alert("No anomalies to export.");
-  var ks=Object.keys(lastAnomalies[0]),csv=[ks.join(",")];
+  var ks=Object.keys(lastAnomalies.at(0)),csv=[ks.join(",")];
   lastAnomalies.forEach(function(r){csv.push(ks.map(function(k){return r[k];}).join(","));});
   var a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv.join("\n"));a.download="3d_defect_anomalies_report.csv";a.click();
 }
 function handleUpload(inp){
-  var file=inp.files[0];if(!file)return;
+  var file=inp.files.item(0);if(!file)return;
   var reader=new FileReader();
   reader.onload=function(e){analyzeCSV(e.target.result,file.name);};
   reader.readAsText(file);
@@ -178,18 +199,18 @@ function loadSample(kind){
 }
 function pearson(xs,ys){
   var n=xs.length,mx=0,my=0,num=0,dx=0,dy=0;
-  for(var i=0;i<n;i++){mx+=xs[i];my+=ys[i];}mx/=n;my/=n;
-  for(var i=0;i<n;i++){var a=xs[i]-mx,b=ys[i]-my;num+=a*b;dx+=a*a;dy+=b*b;}
+  for(var i=0;i<n;i++){mx+=xs.at(i);my+=ys.at(i);}mx/=n;my/=n;
+  for(var i=0;i<n;i++){var a=xs.at(i)-mx,b=ys.at(i)-my;num+=a*b;dx+=a*a;dy+=b*b;}
   return(dx&&dy)?+(num/Math.sqrt(dx*dy)).toFixed(4):0;
 }
 function analyzeCSV(text,fname){
   detectedDomain=detectDomain(fname+"\n"+text);
   var lines=text.trim().split(/\r?\n/);if(lines.length<2)return alert("CSV needs header and data rows.");
-  var hdr=lines[0].split(",").map(function(h){return h.trim();});
+  var hdr=lines.at(0).split(",").map(function(h){return h.trim();});
   var rows=[];
   for(var i=1;i<lines.length;i++){
-    var cols=lines[i].split(",");if(cols.length<hdr.length)continue;
-    var obj={};hdr.forEach(function(h,idx){obj[h]=cols[idx].trim();});rows.push(obj);
+    var cols=lines.at(i).split(",");if(cols.length<hdr.length)continue;
+    var obj={};hdr.forEach(function(h,idx){obj[h]=cols.at(idx).trim();});rows.push(obj);
   }
   var macMap={},regMap={},shiftMap={},temps=[],vibs=[];
   rows.forEach(function(r){
@@ -204,7 +225,7 @@ function analyzeCSV(text,fname){
     var reg=ld>75?"High":(ld>45?"Medium":"Low");
     if(!regMap[reg])regMap[reg]={load_regime:reg,records:0,out:0,en:0,downtime_events:0};
     regMap[reg].records++;regMap[reg].out+=out;regMap[reg].en+=en;regMap[reg].downtime_events+=dt;
-    var hr=0;if(r.timestamp&&r.timestamp.indexOf(":")!==-1){hr=parseInt(r.timestamp.split(" ").pop().split(":")[0])||0;}
+    var hr=0;if(r.timestamp&&r.timestamp.indexOf(":")!==-1){hr=parseInt(r.timestamp.split(" ").pop().split(":").at(0))||0;}
     var sh=(hr>=6&&hr<14)?"Morning":((hr>=14&&hr<22)?"Afternoon":"Night");
     var sk=sh+"_"+hr;
     if(!shiftMap[sk])shiftMap[sk]={hour:hr,shift:sh,records:0,total_output:0,en:0,ld:0};
@@ -219,9 +240,9 @@ function analyzeCSV(text,fname){
   for(var i=0;i<numCols.length;i++){
     for(var j=0;j<numCols.length;j++){
       if(i==j)continue;
-      var xs=rows.map(function(r){return parseFloat(r[numCols[i]])||0;}),ys=rows.map(function(r){return parseFloat(r[numCols[j]])||0;});
+      var xs=rows.map(function(r){return parseFloat(r[numCols.at(i)])||0;}),ys=rows.map(function(r){return parseFloat(r[numCols.at(j)])||0;});
       var pr=pearson(xs,ys),st=Math.abs(pr)>=0.6?"Strong":(Math.abs(pr)>=0.3?"Moderate":"Weak");
-      sc.push({sensor_x:numCols[i],sensor_y:numCols[j],pearson_r:pr,strength:st});
+      sc.push({sensor_x:numCols.at(i),sensor_y:numCols.at(j),pearson_r:pr,strength:st});
     }
   }
   var mt=temps.reduce(function(a,b){return a+b;},0)/temps.length,mv=vibs.reduce(function(a,b){return a+b;},0)/vibs.length;
@@ -249,9 +270,195 @@ function analyzeCSV(text,fname){
   document.getElementById("dataBadge").innerHTML="<b style='color:#4ade80'>Live Uploaded Dataset:</b> "+fname+" ("+rows.length+" records analyzed)";
   render();
 }
+
+var shellMode="xray",rotY=0.55,rotX=0.32,zoom=1.0,drag=false,px=0,py=0,vibAmp=0;
+var partStates={thermal:"ok",rotor:"ok",pressure:"ok",battery:"ok"};
+var partMeta={thermal:{label:"",err:"",fix:""},rotor:{label:"",err:"",fix:""},pressure:{label:"",err:"",fix:""},battery:{label:"",err:"",fix:""}};
+var hitBoxes=[];
+
+function setShellMode(m){shellMode=m;}
+function repairAll3D(){if(d)d.anomalies_detected=[];vibAmp=0;render();}
+
+function updateTwinState(){
+  if(!d)return;
+  var badge=document.getElementById("detectedDomainBadge");
+  if(badge){
+    if(detectedDomain==="car")badge.innerHTML="Detected Object Architecture: <b>Automotive Vehicle / EV — Full Cutaway Interior</b>";
+    else if(detectedDomain==="turbine")badge.innerHTML="Detected Object Architecture: <b>Aerospace / Industrial Gas Turbine — Cutaway Interior</b>";
+    else badge.innerHTML="Detected Object Architecture: <b>CNC Manufacturing Machine & Product Interior</b>";
+  }
+  var sel=document.getElementById("twinMachineSel");
+  var machines=d.machine_behaviour||[];
+  if(sel){
+    var cur=sel.value;
+    sel.innerHTML=machines.map(function(m){return"<option value='"+m.machine_id+"'>"+m.machine_id+" ("+m.production_line+")</option>";}).join("");
+    if(cur&&machines.some(function(m){return m.machine_id==cur;}))sel.value=cur;
+  }
+  var mid=(sel&&sel.value)?sel.value:(machines.length?machines.at(0).machine_id:"M-04");
+  var mInfo=machines.filter(function(m){return m.machine_id==mid;}).at(0)||{};
+  var mAnom=(d.anomalies_detected||[]).filter(function(a){return a.machine_id==mid;});
+  if(!mAnom.length&&(d.anomalies_detected||[]).length){
+    mAnom=[d.anomalies_detected.at(0)];mid=mAnom.at(0).machine_id;if(sel)sel.value=mid;
+  }
+  var topA=mAnom.at(0)||null;
+  var tz=topA?Math.abs(parseFloat(topA.temp_z)||0):0;
+  var vz=topA?Math.abs(parseFloat(topA.vib_z)||0):0;
+  var load=parseFloat(mInfo.avg_load)||65,press=parseFloat(mInfo.avg_pressure)||60;
+
+  var labels=detectedDomain==="car"
+    ?{thermal:"Interior: Engine Block & Cooling Radiator",rotor:"Interior: Drivetrain Shaft & Front Axle",pressure:"Interior: Hydraulic Brake Caliper & ABS",battery:"Interior: Underfloor EV Battery & Cabin ECU"}
+    :(detectedDomain==="turbine"
+      ?{thermal:"Interior: High-Temp Combustion Chamber",rotor:"Interior: Multi-Stage Compressor Shaft",pressure:"Interior: High-Pressure Exhaust Nozzle",battery:"Interior: Intake Fan & Bearing Housing"}
+      :{thermal:"Interior: Thermal Spindle Motor Core",rotor:"Interior: High-Speed Rotor & Bearing Shaft",pressure:"Interior: Hydraulic Clamping & Pressure Valve",battery:"Interior: Manufactured Product Workpiece"});
+
+  var faults=[];
+  if(tz>=2.0||(parseFloat(mInfo.avg_temp)||0)>85){
+    partStates.thermal="crit";
+    partMeta.thermal={label:labels.thermal,err:"Thermal Surge ("+(topA?topA.temperature:mInfo.avg_temp)+"°C, Z="+tz+")",fix:"Inspect coolant loop & thermal sensor"};
+    faults.push({where:labels.thermal,err:partMeta.thermal.err,fix:partMeta.thermal.fix});
+  }else{partStates.thermal="ok";partMeta.thermal={label:labels.thermal,err:"Normal thermal profile",fix:"None"};}
+
+  if(vz>=2.0){
+    vibAmp=1;partStates.rotor="crit";
+    partMeta.rotor={label:labels.rotor,err:"Vibration Surge (Vib Z="+vz+")",fix:"Rebalance rotating shaft & inspect bearings"};
+    faults.push({where:labels.rotor,err:partMeta.rotor.err,fix:partMeta.rotor.fix});
+  }else{vibAmp=0;partStates.rotor="ok";partMeta.rotor={label:labels.rotor,err:"Smooth rotational alignment",fix:"None"};}
+
+  if(load>78||press>90){
+    partStates.pressure="crit";partStates.battery="warn";
+    partMeta.pressure={label:labels.pressure,err:"Overpressure / Overload ("+press+" bar, Load "+load+"%)",fix:"Relieve pressure & lower feed load below 75%"};
+    partMeta.battery={label:labels.battery,err:"Secondary Load / Tolerance Stress",fix:"Verify output tolerance & voltage"};
+    faults.push({where:labels.pressure,err:partMeta.pressure.err,fix:partMeta.pressure.fix});
+  }else{
+    partStates.pressure="ok";partStates.battery="ok";
+    partMeta.pressure={label:labels.pressure,err:"Nominal pressure",fix:"None"};
+    partMeta.battery={label:labels.battery,err:"Nominal output & power",fix:"None"};
+  }
+
+  var diag=document.getElementById("twinDiagList");
+  if(!diag)return;
+  if(!faults.length){
+    diag.innerHTML="<div style='padding:12px;background:#052e16;border:1px solid #166534;border-radius:8px;color:#4ade80'><b>Unit "+mid+" Interior — 0 Active Faults</b><br>All internal 3D components are operating within normal statistical limits.</div>";
+  }else{
+    diag.innerHTML="<div style='margin-bottom:8px;color:#f87171'><b>"+faults.length+" Internal Fault(s) Localized on "+mid+":</b></div>"+
+      faults.map(function(f){
+        return"<div style='background:#1e293b;border-left:3px solid #ef4444;padding:8px 10px;border-radius:6px;margin-bottom:8px'><div style='color:#fca5a5;font-weight:bold'>Location: "+f.where+"</div><div><b>Error:</b> "+f.err+"</div><div style='color:#7dd3fc'><b>Fix:</b> "+f.fix+"</div></div>";
+      }).join("");
+  }
+}
+
+(function start3D(){
+  var cv=document.getElementById("c3d");if(!cv)return;
+  var ctx=cv.getContext("2d");
+  cv.addEventListener("mousedown",function(e){drag=true;px=e.clientX;py=e.clientY;cv.style.cursor="grabbing";});
+  window.addEventListener("mouseup",function(){drag=false;cv.style.cursor="grab";});
+  window.addEventListener("mousemove",function(e){if(!drag)return;rotY+=(e.clientX-px)*0.012;rotX=Math.max(-0.7,Math.min(1.1,rotX+(e.clientY-py)*0.012));px=e.clientX;py=e.clientY;});
+  cv.addEventListener("wheel",function(e){e.preventDefault();zoom=Math.max(0.55,Math.min(1.75,zoom-e.deltaY*0.0008));});
+  cv.addEventListener("click",function(e){
+    var r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+    for(var i=hitBoxes.length-1;i>=0;i--){
+      var b=hitBoxes.at(i);
+      if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h){
+        var m=partMeta[b.key];
+        document.getElementById("partBadge").innerHTML="<b>"+m.label+"</b> ["+partStates[b.key].toUpperCase()+"] — "+m.err+" | <i>Fix: "+m.fix+"</i>";
+        break;
+      }
+    }
+  });
+
+  function proj(x,y,z,W,H){
+    var cy=Math.cos(rotY),sy=Math.sin(rotY),cx=Math.cos(rotX),sx=Math.sin(rotX);
+    var x1=x*cy-z*sy,z1=x*sy+z*cy;
+    var y2=y*cx-z1*sx,z2=y*sx+z1*cx;
+    var f=(260*zoom)/(z2+6.5);
+    return{x:W/2+x1*f,y:H/2+y2*f,z:z2};
+  }
+  function drawBox(cx,cy,cz,w,h,d,fill,stroke,key){
+    var W=cv.width,H=cv.height,hw=w/2,hh=h/2,hd=d/2;
+    var pts=[
+      proj(cx-hw,cy-hh,cz-hd,W,H),proj(cx+hw,cy-hh,cz-hd,W,H),proj(cx+hw,cy+hh,cz-hd,W,H),proj(cx-hw,cy+hh,cz-hd,W,H),
+      proj(cx-hw,cy-hh,cz+hd,W,H),proj(cx+hw,cy-hh,cz+hd,W,H),proj(cx+hw,cy+hh,cz+hd,W,H),proj(cx-hw,cy+hh,cz+hd,W,H)
+    ];
+    var faces=[[0,1,2,3],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,3,7,4]];
+    var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+    pts.forEach(function(p){if(p.x<minX)minX=p.x;if(p.x>maxX)maxX=p.x;if(p.y<minY)minY=p.y;if(p.y>maxY)maxY=p.y;});
+    if(key)hitBoxes.push({key:key,x:minX,y:minY,w:maxX-minX,h:maxY-minY});
+    faces.forEach(function(f){
+      ctx.beginPath();
+      f.forEach(function(idx,i){var p=pts.at(idx);if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);});
+      ctx.closePath();
+      if(fill){ctx.fillStyle=fill;ctx.fill();}
+      if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.3;ctx.stroke();}
+    });
+    return{x:(minX+maxX)/2,y:(minY+maxY)/2};
+  }
+  function colFor(st,isProd){
+    if(st==="crit")return"rgba(239,68,68,0.72)";
+    if(st==="warn")return"rgba(245,158,11,0.68)";
+    return isProd?"rgba(56,189,248,0.62)":"rgba(34,197,94,0.62)";
+  }
+  function drawBeacon(pt,label,t){
+    var r=7+Math.sin(t*6)*3;
+    ctx.beginPath();ctx.arc(pt.x,pt.y,r,0,Math.PI*2);ctx.fillStyle="rgba(239,68,68,0.92)";ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle="#fca5a5";ctx.font="bold 11px Arial";ctx.fillText("FAULT: "+label,pt.x+12,pt.y+4);
+  }
+
+  function frame(){
+    cv.width=cv.clientWidth||600;cv.height=cv.clientHeight||370;
+    var W=cv.width,H=cv.height,t=Date.now()*0.001;
+    if(!drag)rotY+=0.005;
+    ctx.clearRect(0,0,W,H);
+    hitBoxes=[];
+    var vibY=vibAmp?Math.sin(t*35)*0.07:0;
+
+    if(detectedDomain==="car"){
+      var pTh=drawBox(1.35,0.15,0,0.95,0.65,0.95,colFor(partStates.thermal,false),"#e2e8f0","thermal");
+      var pRo=drawBox(0.05,0.35+vibY,0,2.5,0.22,0.28,colFor(partStates.rotor,false),"#e2e8f0","rotor");
+      var pPr=drawBox(1.15,0.45,0,0.65,0.45,1.65,colFor(partStates.pressure,false),"#e2e8f0","pressure");
+      drawBox(-0.35,0.42,0,1.65,0.22,1.3,colFor(partStates.battery,true),"#e2e8f0","battery");
+      drawBox(-0.3,-0.1,0,1.2,0.5,1.25,"rgba(71,85,105,0.55)","#94a3b8",null);
+      [[-1.3,0.65,0.95],[-1.3,0.65,-0.95],[1.3,0.65,0.95],[1.3,0.65,-0.95]].forEach(function(w){
+        drawBox(w.at(0),w.at(1),w.at(2),0.55,0.55,0.24,"rgba(15,23,42,0.9)","#64748b",null);
+      });
+      if(shellMode!=="hidden"){
+        var op=shellMode==="solid"?0.72:0.13;
+        drawBox(0,0.15,0,4.1,0.75,1.8,"rgba(148,163,184,"+op+")","#38bdf8",null);
+        drawBox(-0.2,-0.45,0,2.0,0.6,1.55,"rgba(148,163,184,"+op+")","#38bdf8",null);
+      }
+      if(partStates.thermal==="crit")drawBeacon(pTh,"Engine Overheat",t);
+      if(partStates.rotor==="crit")drawBeacon(pRo,"Axle Vibration",t);
+      if(partStates.pressure==="crit")drawBeacon(pPr,"Brake Overpressure",t);
+    }else if(detectedDomain==="turbine"){
+      var pBt=drawBox(1.35,0,0,0.75,1.25,1.25,colFor(partStates.battery,true),"#e2e8f0","battery");
+      var pRo=drawBox(0,vibY,0,3.3,0.34,0.34,colFor(partStates.rotor,false),"#e2e8f0","rotor");
+      var pTh=drawBox(-0.2,0,0,1.15,1.05,1.05,colFor(partStates.thermal,false),"#e2e8f0","thermal");
+      var pPr=drawBox(-1.35,0,0,0.95,0.85,0.85,colFor(partStates.pressure,false),"#e2e8f0","pressure");
+      if(shellMode!=="hidden"){
+        var op=shellMode==="solid"?0.72:0.13;
+        drawBox(0,0,0,3.9,1.55,1.55,"rgba(148,163,184,"+op+")","#38bdf8",null);
+      }
+      if(partStates.thermal==="crit")drawBeacon(pTh,"Combustion Surge",t);
+      if(partStates.rotor==="crit")drawBeacon(pRo,"Shaft Imbalance",t);
+      if(partStates.pressure==="crit")drawBeacon(pPr,"Exhaust Overpressure",t);
+    }else{
+      var pTh=drawBox(-1.3,0.1,0,0.95,0.85,0.95,colFor(partStates.thermal,false),"#e2e8f0","thermal");
+      var pRo=drawBox(-0.3,0.1+vibY,0,1.05,0.32,0.32,colFor(partStates.rotor,false),"#e2e8f0","rotor");
+      var pPr=drawBox(-1.3,-0.55,-0.25,0.75,0.65,0.75,colFor(partStates.pressure,false),"#e2e8f0","pressure");
+      var pBt=drawBox(1.15,0.28,0,1.15,0.65,1.15,colFor(partStates.battery,true),"#e2e8f0","battery");
+      if(shellMode!=="hidden"){
+        var op=shellMode==="solid"?0.72:0.13;
+        drawBox(0,0,0,4.0,1.85,2.0,"rgba(148,163,184,"+op+")","#38bdf8",null);
+      }
+      if(partStates.thermal==="crit")drawBeacon(pTh,"Motor Overheat",t);
+      if(partStates.rotor==="crit")drawBeacon(pRo,"Spindle Surge",t);
+      if(partStates.pressure==="crit")drawBeacon(pPr,"Hydraulic Overload",t);
+    }
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
 render();
 </script>
-<script src="twin3d.js"></script>
 </body>
 </html>
-
