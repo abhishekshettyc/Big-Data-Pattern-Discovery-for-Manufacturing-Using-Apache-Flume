@@ -57,6 +57,7 @@ tr:hover td{background:#263348}
   <button onclick="runCheck()">Analyze Sensor Input</button>
   <div id="simOut" class="sim-out"></div>
 </div>
+  <div id="twinHost" style="margin-bottom:20px"></div>
 <div id="kpis" class="kpis"></div>
 <div id="panels" class="panels"></div>
 <script>
@@ -103,6 +104,7 @@ function render(){
   var ar=d.association_rules.filter(function(r){return matchSearch(r,q);});
   document.getElementById("kpis").innerHTML=k("Machines",mb.length)+k("Strong Links",sc.length)+k("Assoc Rules",ar.length)+k("Anomalies (|Z|≥"+zt+")",an.length);
   document.getElementById("panels").innerHTML=tempChart(mb)+tbl("Anomalies Detected",an)+tbl("Machine Behaviour",mb)+tbl("Sensor Links",sc)+tbl("Association Rules",ar)+tbl("Production Efficiency",d.production_patterns)+tbl("Temporal Shifts",d.temporal_patterns);
+if(window.updateTwin3D)window.updateTwin3D();
 }
 function runCheck(){
   var m=document.getElementById("inMac").value,t=parseFloat(document.getElementById("inTemp").value),v=parseFloat(document.getElementById("inVib").value),l=parseFloat(document.getElementById("inLoad").value);
@@ -201,5 +203,6 @@ function analyzeCSV(text,fname){
 }
 render();
 </script>
+<script src="twin3d.js"></script>
 </body>
 </html>
