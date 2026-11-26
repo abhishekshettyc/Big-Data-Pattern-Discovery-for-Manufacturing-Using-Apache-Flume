@@ -117,7 +117,7 @@ loadHDFS();
 function detectDomain(text){
   var s=text.toLowerCase();
   if(s.indexOf("car")!==-1||s.indexOf("ev-")!==-1||s.indexOf("brake")!==-1||s.indexOf("battery")!==-1||s.indexOf("coolant")!==-1||s.indexOf("engine")!==-1)return"car";
-  if(s.indexOf("turbine")!==-1||s.indexOf("blade")!==-1||s.indexOf("exhaust")!==-1||s.indexOf("jet")!==-1)return"turbine";
+  if(s.indexOf("aero")!==-1||s.indexOf("plane")!==-1||s.indexOf("aircraft")!==-1||s.indexOf("wing")!==-1||s.indexOf("turbine")!==-1||s.indexOf("exhaust")!==-1||s.indexOf("jet")!==-1)return"turbine";
   return"cnc";
 }
 function resetHDFS(){
@@ -352,8 +352,8 @@ function updateTwinState(){
   var ctx=cv.getContext("2d");
   cv.addEventListener("mousedown",function(e){drag=true;px=e.clientX;py=e.clientY;cv.style.cursor="grabbing";});
   window.addEventListener("mouseup",function(){drag=false;cv.style.cursor="grab";});
-  window.addEventListener("mousemove",function(e){if(!drag)return;rotY+=(e.clientX-px)*0.012;rotX=Math.max(-0.7,Math.min(1.1,rotX+(e.clientY-py)*0.012));px=e.clientX;py=e.clientY;});
-  cv.addEventListener("wheel",function(e){e.preventDefault();zoom=Math.max(0.55,Math.min(1.75,zoom-e.deltaY*0.0008));});
+  window.addEventListener("mousemove",function(e){if(!drag)return;rotY+=(e.clientX-px)*0.012;rotX=Math.max(-0.65,Math.min(1.05,rotX+(e.clientY-py)*0.012));px=e.clientX;py=e.clientY;});
+  cv.addEventListener("wheel",function(e){e.preventDefault();zoom=Math.max(0.55,Math.min(1.85,zoom-e.deltaY*0.0008));});
   cv.addEventListener("click",function(e){
     var r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
     for(var i=hitBoxes.length-1;i>=0;i--){
@@ -370,16 +370,12 @@ function updateTwinState(){
     var cy=Math.cos(rotY),sy=Math.sin(rotY),cx=Math.cos(rotX),sx=Math.sin(rotX);
     var x1=x*cy-z*sy,z1=x*sy+z*cy;
     var y2=y*cx-z1*sx,z2=y*sx+z1*cx;
-    var f=(260*zoom)/(z2+6.5);
+    var f=(265*zoom)/(z2+6.6);
     return{x:W/2+x1*f,y:H/2+y2*f,z:z2};
   }
-  function drawBox(cx,cy,cz,w,h,d,fill,stroke,key){
-    var W=cv.width,H=cv.height,hw=w/2,hh=h/2,hd=d/2;
-    var pts=[
-      proj(cx-hw,cy-hh,cz-hd,W,H),proj(cx+hw,cy-hh,cz-hd,W,H),proj(cx+hw,cy+hh,cz-hd,W,H),proj(cx-hw,cy+hh,cz-hd,W,H),
-      proj(cx-hw,cy-hh,cz+hd,W,H),proj(cx+hw,cy-hh,cz+hd,W,H),proj(cx+hw,cy+hh,cz+hd,W,H),proj(cx-hw,cy+hh,cz+hd,W,H)
-    ];
-    var faces=[[0,1,2,3],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,3,7,4]];
+  function drawPoly(verts,faces,fill,stroke,key,lw){
+    var W=cv.width,H=cv.height;
+    var pts=verts.map(function(v){return proj(v.at(0),v.at(1),v.at(2),W,H);});
     var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
     pts.forEach(function(p){if(p.x<minX)minX=p.x;if(p.x>maxX)maxX=p.x;if(p.y<minY)minY=p.y;if(p.y>maxY)maxY=p.y;});
     if(key)hitBoxes.push({key:key,x:minX,y:minY,w:maxX-minX,h:maxY-minY});
@@ -388,71 +384,128 @@ function updateTwinState(){
       f.forEach(function(idx,i){var p=pts.at(idx);if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);});
       ctx.closePath();
       if(fill){ctx.fillStyle=fill;ctx.fill();}
-      if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.3;ctx.stroke();}
+      if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1.2;ctx.stroke();}
     });
     return{x:(minX+maxX)/2,y:(minY+maxY)/2};
   }
+  function drawBox(cx,cy,cz,w,h,d,fill,stroke,key,lw){
+    var hw=w/2,hh=h/2,hd=d/2;
+    var v=[
+      [cx-hw,cy-hh,cz-hd],[cx+hw,cy-hh,cz-hd],[cx+hw,cy+hh,cz-hd],[cx-hw,cy+hh,cz-hd],
+      [cx-hw,cy-hh,cz+hd],[cx+hw,cy-hh,cz+hd],[cx+hw,cy+hh,cz+hd],[cx-hw,cy+hh,cz+hd]
+    ];
+   return drawPoly(v,"0,1,2,3|4,5,6,7|0,1,5,4|2,3,7,6|1,2,6,5|0,3,7,4".split("|").map(function(s){return s.split(",").map(Number);}),fill,stroke,key,lw);
+  }
+  function drawCyl(cx,cy,cz,r,len,axis,segs,fill,stroke,key,spin){
+    var v=[],faces=[],top=[],bot=[],hl=len/2;
+    for(var i=0;i<segs;i++){
+      var a=(i/segs)*Math.PI*2+(spin||0),c=Math.cos(a)*r,s=Math.sin(a)*r;
+      if(axis==="x"){v.push([cx-hl,cy+c,cz+s],[cx+hl,cy+c,cz+s]);}
+      else if(axis==="z"){v.push([cx+c,cy+s,cz-hl],[cx+c,cy+s,cz+hl]);}
+      else{v.push([cx+c,cy-hl,cz+s],[cx+c,cy+hl,cz+s]);}
+      var n=(i+1)%segs;
+      faces.push([i*2,n*2,n*2+1,i*2+1]);
+      top.push(i*2);bot.push(i*2+1);
+    }
+    faces.push(top,bot);
+    return drawPoly(v,faces,fill,stroke,key,1.1);
+  }
   function colFor(st,isProd){
-    if(st==="crit")return"rgba(239,68,68,0.72)";
-    if(st==="warn")return"rgba(245,158,11,0.68)";
-    return isProd?"rgba(56,189,248,0.62)":"rgba(34,197,94,0.62)";
+    if(st==="crit")return"rgba(239,68,68,0.78)";
+    if(st==="warn")return"rgba(245,158,11,0.72)";
+    return isProd?"rgba(56,189,248,0.65)":"rgba(34,197,94,0.65)";
   }
   function drawBeacon(pt,label,t){
     var r=7+Math.sin(t*6)*3;
-    ctx.beginPath();ctx.arc(pt.x,pt.y,r,0,Math.PI*2);ctx.fillStyle="rgba(239,68,68,0.92)";ctx.fill();
-    ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.arc(pt.x,pt.y,r,0,Math.PI*2);ctx.fillStyle="rgba(239,68,68,0.94)";ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=1.6;ctx.stroke();
     ctx.fillStyle="#fca5a5";ctx.font="bold 11px Arial";ctx.fillText("FAULT: "+label,pt.x+12,pt.y+4);
   }
-
   function frame(){
     cv.width=cv.clientWidth||600;cv.height=cv.clientHeight||370;
     var W=cv.width,H=cv.height,t=Date.now()*0.001;
     if(!drag)rotY+=0.005;
     ctx.clearRect(0,0,W,H);
     hitBoxes=[];
-    var vibY=vibAmp?Math.sin(t*35)*0.07:0;
+    var vibY=vibAmp?Math.sin(t*35)*0.06:0;
 
     if(detectedDomain==="car"){
-      var pTh=drawBox(1.35,0.15,0,0.95,0.65,0.95,colFor(partStates.thermal,false),"#e2e8f0","thermal");
-      var pRo=drawBox(0.05,0.35+vibY,0,2.5,0.22,0.28,colFor(partStates.rotor,false),"#e2e8f0","rotor");
-      var pPr=drawBox(1.15,0.45,0,0.65,0.45,1.65,colFor(partStates.pressure,false),"#e2e8f0","pressure");
-      drawBox(-0.35,0.42,0,1.65,0.22,1.3,colFor(partStates.battery,true),"#e2e8f0","battery");
-      drawBox(-0.3,-0.1,0,1.2,0.5,1.25,"rgba(71,85,105,0.55)","#94a3b8",null);
-      [[-1.3,0.65,0.95],[-1.3,0.65,-0.95],[1.3,0.65,0.95],[1.3,0.65,-0.95]].forEach(function(w){
-        drawBox(w.at(0),w.at(1),w.at(2),0.55,0.55,0.24,"rgba(15,23,42,0.9)","#64748b",null);
+      // Interior Powertrain, Battery Cells, Brakes & Cabin Seats
+      var pTh=drawBox(1.38,0.16,0,0.85,0.52,0.78,colFor(partStates.thermal,false),"#e2e8f0","thermal");
+      drawBox(1.86,0.18,0,0.12,0.46,0.82,"rgba(148,163,184,0.65)","#cbd5e1",null);
+      var pRo=drawBox(0.05,0.34+vibY,0,2.55,0.16,0.22,colFor(partStates.rotor,false),"#e2e8f0","rotor");
+      drawCyl(1.35,0.42+vibY,0,0.11,1.72,"z",12,colFor(partStates.rotor,false),"#e2e8f0","rotor",t*4);
+      drawCyl(-1.35,0.42,0,0.11,1.72,"z",12,"rgba(34,197,94,0.55)","#cbd5e1",null,t*4);
+      var pPr=drawCyl(1.35,0.42,0.76,0.24,0.12,"z",14,colFor(partStates.pressure,false),"#fff","pressure",t*4);
+      drawCyl(1.35,0.42,-0.76,0.24,0.12,"z",14,colFor(partStates.pressure,false),"#fff","pressure",t*4);
+      // Underfloor EV Battery Array & Cabin Seats + Steering Wheel
+      for(var bx=-0.85;bx<=0.45;bx+=0.44){
+        drawBox(bx,0.42,0,0.38,0.16,1.22,colFor(partStates.battery,true),"#bae6fd","battery");
+      }
+      drawBox(0.45,-0.02,0,0.32,0.34,1.22,"rgba(71,85,105,0.75)","#94a3b8",null);
+      drawCyl(0.32,-0.16,0.34,0.16,0.06,"x",12,"rgba(56,189,248,0.7)","#e2e8f0",null,0);
+      drawBox(-0.08,0.08,0.34,0.38,0.48,0.42,"rgba(51,65,85,0.8)","#94a3b8",null);
+      drawBox(-0.08,0.08,-0.34,0.38,0.48,0.42,"rgba(51,65,85,0.8)","#94a3b8",null);
+      drawBox(-0.78,0.08,0,0.38,0.48,1.18,"rgba(51,65,85,0.8)","#94a3b8",null);
+      // 4 Rotating Cylindrical Wheels
+      [[-1.35,0.45,0.92],[-1.35,0.45,-0.92],[1.35,0.45,0.92],[1.35,0.45,-0.92]].forEach(function(w){
+        drawCyl(w.at(0),w.at(1),w.at(2),0.42,0.24,"z",18,"rgba(15,23,42,0.88)","#64748b",null,t*4);
       });
+      // Sculpted Aerodynamic Car Body Shell (Sloped Hood, Windshield, Roof, Fastback)
       if(shellMode!=="hidden"){
-        var op=shellMode==="solid"?0.72:0.13;
-        drawBox(0,0.15,0,4.1,0.75,1.8,"rgba(148,163,184,"+op+")","#38bdf8",null);
-        drawBox(-0.2,-0.45,0,2.0,0.6,1.55,"rgba(148,163,184,"+op+")","#38bdf8",null);
+        var op=shellMode==="solid"?0.72:0.13,sf="rgba(148,163,184,"+op+")";
+        var bodyV=[
+          [-2.15,0.38,-0.88],[2.15,0.38,-0.88],[2.15,0.38,0.88],[-2.15,0.38,0.88],
+          [-2.05,-0.02,-0.85],[1.05,-0.02,-0.85],[2.08,0.08,-0.82],[2.08,0.08,0.82],
+          [1.05,-0.02,0.85],[-2.05,-0.02,0.85],[-1.45,-0.52,-0.72],[0.38,-0.52,-0.72],
+          [0.38,-0.52,0.72],[-1.45,-0.52,0.72]
+        ];
+        drawPoly(bodyV,"0,1,2,3|4,5,6,7,8,9|10,11,12,13|4,9,13,10|5,8,12,11|10,11,5,4".split("|").map(function(s){return s.split(",").map(Number);}),sf,"#38bdf8",null,1.2);
       }
       if(partStates.thermal==="crit")drawBeacon(pTh,"Engine Overheat",t);
       if(partStates.rotor==="crit")drawBeacon(pRo,"Axle Vibration",t);
       if(partStates.pressure==="crit")drawBeacon(pPr,"Brake Overpressure",t);
+
     }else if(detectedDomain==="turbine"){
-      var pBt=drawBox(1.35,0,0,0.75,1.25,1.25,colFor(partStates.battery,true),"#e2e8f0","battery");
-      var pRo=drawBox(0,vibY,0,3.3,0.34,0.34,colFor(partStates.rotor,false),"#e2e8f0","rotor");
-      var pTh=drawBox(-0.2,0,0,1.15,1.05,1.05,colFor(partStates.thermal,false),"#e2e8f0","thermal");
-      var pPr=drawBox(-1.35,0,0,0.95,0.85,0.85,colFor(partStates.pressure,false),"#e2e8f0","pressure");
+      // Sculpted Commercial / Jet Aeroplane Cutaway Interior
+      drawCyl(1.45,0,0,0.46,0.95,"x",16,colFor(partStates.battery,true),"#bae6fd","battery",0);
+      var pRo=drawCyl(0,vibY,0,0.16,3.65,"x",14,colFor(partStates.rotor,false),"#fff","rotor",t*6);
+      var pTh=drawCyl(0.15,0,0.78,0.28,0.88,"x",14,colFor(partStates.thermal,false),"#fff","thermal",t*8);
+      drawCyl(0.15,0,-0.78,0.28,0.88,"x",14,colFor(partStates.thermal,false),"#fff","thermal",t*8);
+      var pPr=drawCyl(-1.55,0,0,0.36,0.95,"x",16,colFor(partStates.pressure,false),"#fff","pressure",0);
+            // Swept-Back Main Wings & Tail Stabilizers
+      var wingV=[
+        [0.45,0.05,-0.35],[-0.55,0.08,-2.35],[-0.95,0.08,-2.35],[-0.35,0.05,-0.35],
+        [0.45,0.05,0.35],[-0.55,0.08,2.35],[-0.95,0.08,2.35],[-0.35,0.05,0.35]
+      ];
+      var wFaces="0,1,2,3|4,5,6,7".split("|").map(function(s){return s.split(",").map(Number);});
+      drawPoly(wingV,wFaces,"rgba(56,189,248,0.28)","#38bdf8",null,1.2);
+      drawPoly([[-1.45,0,0],[-2.05,-0.85,0],[-2.25,-0.85,0],[-1.95,0,0]],["0,1,2,3".split(",").map(Number)],"rgba(56,189,248,0.38)","#38bdf8",null,1.2);
+      // Transparent Cylindrical Aircraft Fuselage & Nose Cone
       if(shellMode!=="hidden"){
         var op=shellMode==="solid"?0.72:0.13;
-        drawBox(0,0,0,3.9,1.55,1.55,"rgba(148,163,184,"+op+")","#38bdf8",null);
+        drawCyl(0,0,0,0.68,3.6,"x",20,"rgba(148,163,184,"+op+")","#38bdf8",null,0);
+        var nFaces="0,1,2|2,1,3|3,1,4|4,1,0".split("|").map(function(s){return s.split(",").map(Number);});
+        drawPoly([[1.8,-0.45,-0.45],[2.45,0.08,0],[1.8,0.45,-0.45],[1.8,0.45,0.45],[1.8,-0.45,0.45]],nFaces,"rgba(148,163,184,"+op+")","#38bdf8",null,1.2);
       }
-      if(partStates.thermal==="crit")drawBeacon(pTh,"Combustion Surge",t);
-      if(partStates.rotor==="crit")drawBeacon(pRo,"Shaft Imbalance",t);
-      if(partStates.pressure==="crit")drawBeacon(pPr,"Exhaust Overpressure",t);
+      if(partStates.thermal==="crit")drawBeacon(pTh,"Jet Engine Overheat",t);
+      if(partStates.rotor==="crit")drawBeacon(pRo,"Main Shaft Vibration",t);
+      if(partStates.pressure==="crit")drawBeacon(pPr,"Exhaust Pressure Surge",t);
+
     }else{
-      var pTh=drawBox(-1.3,0.1,0,0.95,0.85,0.95,colFor(partStates.thermal,false),"#e2e8f0","thermal");
-      var pRo=drawBox(-0.3,0.1+vibY,0,1.05,0.32,0.32,colFor(partStates.rotor,false),"#e2e8f0","rotor");
-      var pPr=drawBox(-1.3,-0.55,-0.25,0.75,0.65,0.75,colFor(partStates.pressure,false),"#e2e8f0","pressure");
-      var pBt=drawBox(1.15,0.28,0,1.15,0.65,1.15,colFor(partStates.battery,true),"#e2e8f0","battery");
+      // Sculpted CNC Milling Center & Machined Cylindrical Workpiece
+      var pTh=drawCyl(-1.15,-0.25,0,0.45,0.95,"y",18,colFor(partStates.thermal,false),"#e2e8f0","thermal",0);
+      var pRo=drawCyl(-1.15,0.35+vibY,0,0.16,0.75,"y",14,colFor(partStates.rotor,false),"#fff","rotor",t*8);
+      var pPr=drawBox(-1.15,0.75,-0.25,0.85,0.35,0.85,colFor(partStates.pressure,false),"#e2e8f0","pressure");
+      var pBt=drawCyl(1.05,0.42,0,0.56,0.48,"y",20,colFor(partStates.battery,true),"#bae6fd","battery",t*2);
+      drawBox(1.05,0.75,0,1.45,0.22,1.45,"rgba(51,65,85,0.8)","#94a3b8",null);
       if(shellMode!=="hidden"){
         var op=shellMode==="solid"?0.72:0.13;
-        drawBox(0,0,0,4.0,1.85,2.0,"rgba(148,163,184,"+op+")","#38bdf8",null);
+        drawBox(0,0.05,0,4.0,1.8,2.0,"rgba(148,163,184,"+op+")","#38bdf8",null);
       }
-      if(partStates.thermal==="crit")drawBeacon(pTh,"Motor Overheat",t);
-      if(partStates.rotor==="crit")drawBeacon(pRo,"Spindle Surge",t);
-      if(partStates.pressure==="crit")drawBeacon(pPr,"Hydraulic Overload",t);
+      if(partStates.thermal==="crit")drawBeacon(pTh,"Spindle Motor Overheat",t);
+      if(partStates.rotor==="crit")drawBeacon(pRo,"Tool Rotor Vibration",t);
+      if(partStates.pressure==="crit")drawBeacon(pPr,"Hydraulic Vise Overload",t);
     }
     requestAnimationFrame(frame);
   }
