@@ -2,6 +2,12 @@
   var s=document.createElement("script");
   s.src="https://cloudflare.com";
   s.onload=initTwin;
+  s.onerror=function(){
+    var s2=document.createElement("script");
+    s2.src="https://unpkg.com";
+    s2.onload=initTwin;
+    document.head.appendChild(s2);
+  };
   document.head.appendChild(s);
 
   var scene,camera,renderer,rootGroup,parts={},shells=[],markers=[],vibIntensity=0,builtDomain="";
