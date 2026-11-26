@@ -35,12 +35,12 @@
 
     var box=document.getElementById("canvas3d");
     scene=new THREE.Scene();
-    camera=new THREE.PerspectiveCamera(42,box.clientWidth/box.clientHeight,0.1,100);
+    camera=new THREE.PerspectiveCamera(42,(box.clientWidth||600)/370,0.1,100);
     renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
-    renderer.setSize(box.clientWidth,box.clientHeight);
+    renderer.setSize(box.clientWidth||600,370);
     box.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff,0.7));
+    scene.add(new THREE.AmbientLight(0xffffff,0.75));
     var dir=new THREE.DirectionalLight(0xffffff,0.95);dir.position.set(5,8,6);scene.add(dir);
     var grid=new THREE.GridHelper(9,18,0x334155,0x1e293b);grid.position.y=-1.35;scene.add(grid);
 
@@ -65,16 +65,16 @@
       var hitList=Object.values(parts);
       var hits=ray.intersectObjects(hitList);
       if(hits.length){
-        var u=hits[0].object.userData;
+        var u=hits.at(0).object.userData;
         document.getElementById("partBadge").innerHTML="<b>"+u.label+"</b> ["+u.status+"] — "+u.error+" | <i>Fix: "+u.fix+"</i>";
       }
     });
 
     window.addEventListener("resize",function(){
       if(!box.clientWidth)return;
-      camera.aspect=box.clientWidth/box.clientHeight;
+      camera.aspect=box.clientWidth/370;
       camera.updateProjectionMatrix();
-      renderer.setSize(box.clientWidth,box.clientHeight);
+      renderer.setSize(box.clientWidth,370);
     });
 
     window.updateTwin3D();
@@ -115,11 +115,11 @@
     return mesh;
   }
   function addMarker(x,y,z){
-    var m=new THREE.Mesh(new THREE.SphereGeometry(0.15,16,16),new THREE.MeshBasicMaterial({color:0xff2a2a}));
+    var m=new THREE.Mesh(new THREE.SphereGeometry(0.16,16,16),new THREE.MeshBasicMaterial({color:0xff2a2a}));
     m.position.set(x,y,z);m.visible=false;rootGroup.add(m);markers.push(m);return m;
   }
   function buildObjectGeometry(domain){
-    while(rootGroup.children.length)rootGroup.remove(rootGroup.children[0]);
+    while(rootGroup.children.length)rootGroup.remove(rootGroup.children.at(0));
     parts={};shells=[];markers=[];
     var badge=document.getElementById("detectedDomainBadge");
 
@@ -133,9 +133,9 @@
       addInteriorPart("pressure","Interior: Hydraulic Brake Caliper & ABS Pump",new THREE.BoxGeometry(0.65,0.45,1.65),1.15,-0.85,0,0x22c55e);
       addInteriorPart("battery","Interior: Underfloor EV Battery & Cabin ECU",new THREE.BoxGeometry(1.75,0.22,1.35),-0.25,-0.82,0,0x38bdf8);
       addInteriorPart("cabin","Interior: Cabin Dashboard & Seat Assembly",new THREE.BoxGeometry(1.4,0.48,1.35),-0.2,-0.25,0,0x475569);
-      [[-1.3,-0.92,0.98],[-1.3,-0.92,-0.98],[1.3,-0.92,0.98],[1.3,-0.92,-0.98]].forEach(function(w){
+      [{x:-1.3,y:-0.92,z:0.98},{x:-1.3,y:-0.92,z:-0.98},{x:1.3,y:-0.92,z:0.98},{x:1.3,y:-0.92,z:-0.98}].forEach(function(w){
         var wh=new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.38,0.24,20),new THREE.MeshStandardMaterial({color:0x1e293b}));
-        wh.rotation.x=Math.PI/2;wh.position.set(w[0],w[1],w[2]);rootGroup.add(wh);
+        wh.rotation.x=Math.PI/2;wh.position.set(w.x,w.y,w.z);rootGroup.add(wh);
       });
       parts.m_thermal=addMarker(1.55,-0.32,0.2);
       parts.m_rotor=addMarker(0.2,-0.65,0.3);
@@ -199,16 +199,16 @@
       sel.innerHTML=machines.map(function(m){return"<option value='"+m.machine_id+"'>"+m.machine_id+" ("+m.production_line+")</option>";}).join("");
       if(cur&&machines.some(function(m){return m.machine_id==cur;}))sel.value=cur;
     }
-    var mid=(sel&&sel.value)?sel.value:(machines.length?machines[0].machine_id:"M-04");
-    var mInfo=machines.filter(function(m){return m.machine_id==mid;})[0]||{};
+    var mid=(sel&&sel.value)?sel.value:(machines.length?machines.at(0).machine_id:"M-04");
+    var mInfo=machines.filter(function(m){return m.machine_id==mid;}).at(0)||{};
     var mAnom=(d.anomalies_detected||[]).filter(function(a){return a.machine_id==mid;});
     if(!mAnom.length&&(d.anomalies_detected||[]).length){
-      mAnom=[d.anomalies_detected[0]];
-      mid=mAnom[0].machine_id;
+      mAnom=[d.anomalies_detected.at(0)];
+      mid=mAnom.at(0).machine_id;
       if(sel)sel.value=mid;
     }
 
-    var topA=mAnom[0]||null;
+    var topA=mAnom.at(0)||null;
     var tz=topA?Math.abs(parseFloat(topA.temp_z)||0):0;
     var vz=topA?Math.abs(parseFloat(topA.vib_z)||0):0;
     var load=parseFloat(mInfo.avg_load)||65;
@@ -225,7 +225,7 @@
     }
 
     var faults=[];
-    if(tz>=2.0||(parseFloat(mInfo.avg_temp)||0)>85){
+    if(tz>=1.5||(parseFloat(mInfo.avg_temp)||0)>85){
       setPart("thermal","crit","Thermal Surge ("+(topA?topA.temperature:mInfo.avg_temp)+"°C, Z = "+tz+")","Inspect cooling system & thermal sensor",false);
       if(parts.m_thermal)parts.m_thermal.visible=true;
       faults.push({where:parts.thermal.userData.label,err:"Severe Overheating Surge (Temp Z = "+tz+")",fix:"Check coolant circulation & reduce thermal load"});
@@ -234,7 +234,7 @@
       if(parts.m_thermal)parts.m_thermal.visible=false;
     }
 
-    if(vz>=2.0){
+    if(vz>=1.5){
       vibIntensity=1.5;
       setPart("rotor","crit","Mechanical Vibration Surge (Vib Z = "+vz+")","Rebalance rotating shaft & bearings",false);
       if(parts.m_rotor)parts.m_rotor.visible=true;
@@ -245,7 +245,7 @@
       if(parts.m_rotor)parts.m_rotor.visible=false;
     }
 
-    if(load>78||press>95){
+    if(load>78||press>90){
       setPart("pressure","crit","High Pressure / Overload ("+press+" bar, Load "+load+"%)","Relieve hydraulic/valve pressure",false);
       setPart("battery","warn","Secondary Load Stress","Verify voltage / output tolerance",true);
       if(parts.m_pressure)parts.m_pressure.visible=true;
